@@ -15,7 +15,8 @@ def apiKey = this.args[0]
 def gdcrDate = "2016-10-22"
 def gdcrEventTag = "gdcr16" // the tag used to search the coderetreat.org site for events
 def outputCsvFile = "data/locations.csv"
-def outputJsonFile = "public/data/locations.json"
+// def gdcrEventTag = this.args[1]
+def outputJsonFile = "public/data/${gdcrEventTag}.json"
 
 @Grapes([
   @Grab('com.google.maps:google-maps-services:0.1.3'),
@@ -36,7 +37,7 @@ import java.util.Date
 class Event implements Comparable<Event> {
   final String country
   final String city
-  final List<String> urls
+  final String url
   final double[] coords
   final double offset
   final String timeZone
@@ -46,13 +47,13 @@ class Event implements Comparable<Event> {
                double[] coords,
                double offset,
                String timeZone,
-               List<String> urls) {
+               String url) {
     this.country = country
     this.city = city
     this.coords = coords
     this.offset = offset
     this.timeZone = timeZone
-    this.urls = new ArrayList(urls)
+    this.url = url
   }
 
   public Event(params) {
@@ -61,7 +62,7 @@ class Event implements Comparable<Event> {
     this.coords = params['coords']
     this.offset = params['offset']
     this.timeZone = params['timeZone']
-    this.urls = new ArrayList(params['urls'])
+    this.url = params['url']
   }
 
   String getName() { return "${city}, ${country}" }
@@ -94,7 +95,7 @@ class EventsFetcher {
   }
 
 
-  List<Event> fetchEvents(int pageNum = 1) {
+  List<Event> fetchEvents(int pageNum = -1) {
     List<Event> events = []
 
     def eventElements = fetchEventElements(pageNum)
@@ -103,7 +104,7 @@ class EventsFetcher {
       if (event) events += event
     }
 
-    if (eventElements.size() > 0) events += fetchEvents(pageNum + 1);
+    if (eventElements.size() > 0) events += fetchEvents(pageNum - 1);
 
     events
   }
@@ -114,6 +115,7 @@ class EventsFetcher {
                    .header("Cache-control", "no-cache")
                    .header("Cache-store", "no-store")
                    .get()
+   println("Fetching $pageUrl")
 
     doc.select("ul.clist h3 a")
   }
@@ -137,7 +139,7 @@ class EventsFetcher {
           coords: [coords.lat, coords.lng],
           offset: gdcrOffset,
           timeZone: timeZone.getID(),
-          urls: [eventElement.attr("href")]
+          url: eventElement.attr("href")
         )
         return event
       } else {
@@ -192,10 +194,9 @@ class EventsFetcher {
 def fetcher = new EventsFetcher(gdcrDate, gdcrEventTag, apiKey)
 def events = fetcher.fetchEvents().sort()
 
-new File(outputCsvFile).withWriter { out ->
-  events.each { out.writeLine(it.toCsv()) }
-}
+// new File(outputCsvFile).withWriter { out ->
+//   events.each { out.writeLine(it.toCsv()) }
+// }
 
-def uniqueEvents = fetcher.combineDuplicates(events)
-new File(outputJsonFile).write(new JsonBuilder(uniqueEvents).toPrettyString())
-
+// def uniqueEvents = fetcher.combineDuplicates(events)
+new File(outputJsonFile).write(new JsonBuilder(events).toPrettyString())
