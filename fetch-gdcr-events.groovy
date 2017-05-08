@@ -46,6 +46,7 @@ class Event implements Comparable<Event> {
   def title
   def details
   def description
+  def addedBy
 
   public Event(String country,
                String city,
@@ -162,15 +163,18 @@ class EventsFetcher {
     event.title = doc.select(".tb h1").text()
     event.description = doc.select('.xg_user_generated').html()
     event.details = doc.select('.event_details p').first().html()
-    def imageSrc = doc.select('.pad5 img').attr('src')
-    def lastIndex = event.url.lastIndexOf('/')
-    def imageName = event.url.substring(lastIndex + 1)
-    downloadEventImage(imageSrc, imageName)
+    def eventImage = doc.select('.pad5 img').attr('src')
+    //downloadImage(eventImageSrc, event.url, 'events')
+    event.addedBy = doc.select('.navigation.byline a')[1].text()
+    def authorImageSrc = doc.select('.xg_headline .photo').attr('src')
+    downloadImage(authorImageSrc, event.addedBy, 'users')
   }
 
-  def downloadEventImage(imageSrc, imageName) {
+  def downloadImage(imageSrc, url, folder) {
+    def lastIndex = url.lastIndexOf('/')
+    def imageName = url.substring(lastIndex + 1)
     Response resultImageResponse = Jsoup.connect(imageSrc).ignoreContentType(true).execute()
-    FileOutputStream out = (new FileOutputStream(new java.io.File("public/images/events/${imageName}.png")));
+    FileOutputStream out = (new FileOutputStream(new java.io.File("public/images/${folder}/${imageName}.png")));
     out.write(resultImageResponse.bodyAsBytes());
     out.close();
   }
