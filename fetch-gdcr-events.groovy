@@ -25,6 +25,7 @@ def outputJsonFile = "public/data/${gdcrEventTag}.json"
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
+import org.jsoup.Connection.Response
 
 import groovy.json.JsonBuilder
 
@@ -41,6 +42,10 @@ class Event implements Comparable<Event> {
   final double[] coords
   final double offset
   final String timeZone
+
+  def title
+  def details
+  def description
 
   public Event(String country,
                String city,
@@ -109,14 +114,17 @@ class EventsFetcher {
     events
   }
 
-  private Elements fetchEventElements(int pageNum) {
-    def pageUrl = "http://coderetreat.org/events/event/listByType?type=${gdcrEventTag}&page_q=AAAAAAAAADQ=&page=${pageNum}"
-    def doc = Jsoup.connect(pageUrl)
+  private def getUrlDoc(pageUrl) {
+    println "...Fetching $pageUrl"
+    return Jsoup.connect(pageUrl)
                    .header("Cache-control", "no-cache")
                    .header("Cache-store", "no-store")
                    .get()
-   println("Fetching $pageUrl")
+  }
 
+  private Elements fetchEventElements(int pageNum) {
+    def pageUrl = "http://coderetreat.org/events/event/listByType?type=${gdcrEventTag}&page_q=AAAAAAAAADQ=&page=${pageNum}"
+    def doc = getUrlDoc(pageUrl)
     doc.select("ul.clist h3 a")
   }
 
@@ -141,11 +149,30 @@ class EventsFetcher {
           timeZone: timeZone.getID(),
           url: eventElement.attr("href")
         )
+        parseEventUrl(event)
         return event
       } else {
         println "Unable to parse event name: ${eventName}"
         return null
       }
+  }
+
+  def parseEventUrl(event) {
+    def doc = getUrlDoc(event.url)
+    event.title = doc.select(".tb h1").text()
+    event.description = doc.select('.xg_user_generated').html()
+    event.details = doc.select('.event_details p').first().html()
+    def imageSrc = doc.select('.pad5 img').attr('src')
+    def lastIndex = event.url.lastIndexOf('/')
+    def imageName = event.url.substring(lastIndex + 1)
+    downloadEventImage(imageSrc, imageName)
+  }
+
+  def downloadEventImage(imageSrc, imageName) {
+    Response resultImageResponse = Jsoup.connect(imageSrc).ignoreContentType(true).execute()
+    FileOutputStream out = (new FileOutputStream(new java.io.File("public/images/events/${imageName}.png")));
+    out.write(resultImageResponse.bodyAsBytes());
+    out.close();
   }
 
   private String stripHeader(String eventName) {
