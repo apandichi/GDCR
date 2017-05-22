@@ -34,6 +34,7 @@ import com.google.maps.model.*
 
 import java.util.TimeZone
 import java.util.Date
+import java.net.SocketTimeoutException
 
 class Event implements Comparable<Event> {
   final String country
@@ -117,10 +118,18 @@ class EventsFetcher {
 
   private def getUrlDoc(pageUrl) {
     println "...Fetching $pageUrl"
-    return Jsoup.connect(pageUrl)
-                   .header("Cache-control", "no-cache")
-                   .header("Cache-store", "no-store")
-                   .get()
+
+    try {
+      return Jsoup.connect(pageUrl)
+                     .header("Cache-control", "no-cache")
+                     .header("Cache-store", "no-store")
+                     .get()
+    } catch (SocketTimeoutException e) {
+      println e.getMessage()
+      println "Retrying..."
+      return getUrlDoc(pageUrl)
+    }
+
   }
 
   private Elements fetchEventElements(int pageNum) {
