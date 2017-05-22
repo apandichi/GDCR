@@ -2,10 +2,10 @@
 // -*- mode: groovy -*-
 // vi: set ft=groovy :
 
-if (this.args.length < 1) {
-  println("Oops! You need to provide a Google API Key to use this script.")
+if (this.args.length < 2) {
+  println("Oops! You need to provide a Google API Key and a coderetreat tag to use this script.")
   println()
-  println("USAGE: fetch_gdcr_events.groovy <SERVER GOOGLE API KEY>")
+  println("USAGE: fetch_gdcr_events.groovy <SERVER GOOGLE API KEY> <TAG>")
   println()
   println("See https://github.com/googlemaps/google-maps-services-java#api-keys for instructions on how to setup an API key.")
   System.exit(1)
@@ -13,7 +13,7 @@ if (this.args.length < 1) {
 
 def apiKey = this.args[0]
 def gdcrDate = "2016-10-22"
-def gdcrEventTag = "gdcr16" // the tag used to search the coderetreat.org site for events
+def gdcrEventTag = this.args[1] // "gdcr16" // the tag used to search the coderetreat.org site for events
 def outputCsvFile = "data/locations.csv"
 // def gdcrEventTag = this.args[1]
 def outputJsonFile = "public/data/${gdcrEventTag}.json"
@@ -172,8 +172,8 @@ class EventsFetcher {
     event.title = doc.select(".tb h1").text()
     event.description = doc.select('.xg_user_generated').html()
     event.details = doc.select('.event_details p').first().html()
-    def eventImage = doc.select('.pad5 img').attr('src')
-    //downloadImage(eventImageSrc, event.url, 'events')
+    def eventImageSrc = doc.select('.pad5 img').attr('src')
+    downloadImage(eventImageSrc, event.url, 'events')
     event.addedBy = doc.select('.navigation.byline a')[1].text()
     def authorImageSrc = doc.select('.xg_headline .photo').attr('src')
     downloadImage(authorImageSrc, event.addedBy, 'users')
@@ -182,10 +182,16 @@ class EventsFetcher {
   def downloadImage(imageSrc, url, folder) {
     def lastIndex = url.lastIndexOf('/')
     def imageName = url.substring(lastIndex + 1)
-    Response resultImageResponse = Jsoup.connect(imageSrc).ignoreContentType(true).execute()
-    FileOutputStream out = (new FileOutputStream(new java.io.File("public/images/${folder}/${imageName}.png")));
-    out.write(resultImageResponse.bodyAsBytes());
-    out.close();
+    try {
+      Response resultImageResponse = Jsoup.connect(imageSrc).ignoreContentType(true).execute()
+      FileOutputStream out = (new FileOutputStream(new java.io.File("public/images/${folder}/${imageName}.png")));
+      out.write(resultImageResponse.bodyAsBytes());
+      out.close();
+    } catch (SocketTimeoutException e) {
+      println e.getMessage()
+      println "Retrying..."
+      downloadImage(imageSrc, url, folder)
+    }
   }
 
   private String stripHeader(String eventName) {
